@@ -1,0 +1,252 @@
+Imports System.IO
+Imports System.Data.SqlClient
+Imports System.Globalization
+
+
+Public Class _Default
+    Inherits System.Web.UI.Page
+
+    Protected Sub Page_Load(ByVal sender As Object, ByVal e As System.EventArgs) Handles Me.Load
+        Dim inputfilepath As String = "D:\"
+        Dim InputFileName As String = "Trade.txt"
+        ''Dim _listTrade As New Trade()
+        Dim Tradelist As List(Of Trade) = GetTradeData(inputfilepath, InputFileName)
+        VaildateTrade(Tradelist)
+        SaveTrades(Tradelist)
+        Dim ValidTradelist As List(Of Trade) = getvaliddata()
+        For Each item In ValidTradelist
+            item.Amount = GetCalculatedTrade(item.Amount, item.Currency)
+        Next
+        writetotextfile(ValidTradelist)
+
+    End Sub
+
+
+
+
+
+
+    Public Sub SaveTrades(ByVal RecordList As List(Of Trade))
+        For Each Items As Trade In RecordList
+            Dim strCon As String = "Data Source=SRILEKHS-PC;Initial Catalog=kirthiga;User ID=sa;Password=gtec;" 'NT Authentication
+            'For SQL Authentication Dim strCon As String = "Data Source=SERVERNAME\SQLEXPRESS;Initial Catalog=DATABASENAME;User ID=USERNAME;Password=PASSWORD;Connection Timeout=50;"
+            'Dim strcon As String = "Data Source=SRILEKHS-PC;Initial Catalog=kirthiga;User ID=sa;Password=gtec;Integrated Security=True"
+            'Dim strcon As String = "Data Source=SRILEKHS-PC;Initial Catalog=kirthiga;Integrated Security=True"
+            Dim mycon As New SqlConnection(strCon)
+            mycon.Open()
+            Dim strquery As String = "INSERT INTO trade VALUES('" + Items.TradeId + "','" + Items.ISIN + "','" + Items.TradeDate + "','" + Items.MaturityDate + "','" + Items.Currency + "','" + Items.Amount + "')"
+            Dim cmd As New SqlCommand(strquery, mycon)
+            cmd.ExecuteNonQuery()
+        Next
+    End Sub
+
+
+    Public Function getvaliddata() As List(Of Trade)
+
+        'Dim connectionString As String = ConfigurationManager.ConnectionStrings("NorthwindConnectionString").ConnectionString
+
+        Dim strcon As String = "Data Source=SRILEKHS-PC;Initial Catalog=kirthiga;User ID=sa;Password=gtec;"
+        Dim mycon As New SqlConnection(strcon)
+        mycon.Open()
+        Dim RETURNLIST As New List(Of Trade)
+
+        Try
+            ' open the Sql connection 
+
+            ' Sql Command object initialized with SQL query to retrieve the categories 
+            Dim mySqlCommand As New SqlCommand("Select * from trade", mycon)
+
+            ' Sql Data Adapter object initialized by passing the Sql Command object 
+            Dim mySqlDataAdapter As New SqlDataAdapter(mySqlCommand)
+
+            ' DataSet object to store the retrieved SQL data items 
+            Dim myDataSet As New DataSet()
+
+            ' fill the DataSet 
+            mySqlDataAdapter.Fill(myDataSet)
+
+
+            'For Each row As DataRow In myDataSet.Tables(0).Rows
+            '    RETURNLIST = row.Item.
+            '    Next()
+
+
+
+            'For Each row As DataRow In ds.Tables(0).Rows
+            '    RR_ID.Add(Integer.Parse(row.ItemArray.GetValue(0).ToString()))
+            'Next
+
+            Dim reader As SqlDataReader = mySqlCommand.ExecuteReader()
+            While reader.Read()
+                RETURNLIST.Add(New Trade() With { _
+                  .TradeId = reader("tradeid").ToString(), _
+                  .ISIN = reader("ISINNUM").ToString(), _
+                  .Amount = reader("AMOUNT").ToString(), _
+                  .Currency = reader("CURRENCY").ToString(), _
+                  .MaturityDate = reader("MATDAT").ToString(),
+                .TradeDate = reader("TRADEDATE").ToString()
+                })
+
+            End While
+
+            Return RETURNLIST
+            '=======================================================
+            'Service provided by Telerik (www.telerik.com)
+            'Conversion powered by NRefactory.
+            'Twitter: @telerik
+            'Facebook: facebook.com/telerik
+            '=======================================================
+
+
+
+
+
+            'Return myDataSet
+
+        Catch ex As Exception
+            'Label1.Text = ex.Message
+        Finally
+            ' close the Sql Connection 
+            mycon.Close()
+        End Try
+
+        Return Nothing
+
+        '=======================================================
+
+    End Function
+
+
+
+
+
+    Public Function GetTradeData(ByVal InputFilePath As String, ByVal InputFileName As String) As List(Of Trade)
+        Dim _listTrade As New List(Of Trade)()
+        Dim var As String = String.Empty
+        Dim tradeData = File.ReadAllLines(InputFilePath & InputFileName)
+
+
+        For Each lines In tradeData
+            Dim _tradeArray As String() = lines.Split(","c)
+            _listTrade.Add(New Trade() With {
+              .TradeId = _tradeArray(0),
+              .ISIN = _tradeArray(1),
+              .TradeDate = _tradeArray(2),
+              .MaturityDate = _tradeArray(3),
+              .Currency = _tradeArray(4),
+              .Amount = _tradeArray(5)
+            })
+        Next
+        Return _listTrade
+
+    End Function
+
+
+    Public Sub writetotextfile(ByVal validlist As List(Of Trade))
+
+        Dim outputpath As String = "D:\kirthiga\"
+        Dim filename As String = outputpath & "ErrorPage.txt"
+        Dim sb As New StringBuilder()
+
+        For Each ListItem In validlist
+
+            sb.Append("error file")
+            sb.Append(ListItem.Amount)
+            sb.Append(ListItem.Currency)
+            sb.AppendLine()
+        Next
+
+        Dim inputfilename As String = "D:\ErrorPage.txt"
+        If Not File.Exists(inputfilename) Then
+            File.Create(inputfilename)
+        End If
+        '' write to text file
+
+        Dim fs As New FileStream(inputfilename, FileMode.Append, FileAccess.Write)
+        '"c:\\test.txt" Change to appropriate path
+        Using sw As New StreamWriter(fs)
+
+            'Enter the text Hello in the console.
+            sw.WriteLine(sb)
+            sw.Flush()
+
+            sw.Close()
+        End Using
+
+
+
+        fs.Close()
+
+
+
+        If File.Exists(outputpath) Then
+
+            File.Move(inputfilename, filename)
+        End If
+
+
+
+
+
+
+
+    End Sub
+
+
+    Public Function GetCalculatedTrade(ByVal amount As [Double], ByVal Currency As String) As [Double]
+
+        Select Case Currency
+            Case "USD"
+                Return amount * 0.6
+            Case "EUR"
+                Return amount * 0.1
+            Case "IND"
+                Return amount * 1
+            Case Else
+                Return 0
+
+        End Select
+    End Function
+
+
+    Public Function VaildateTrade(ByVal _trade As List(Of Trade)) As List(Of Trade)
+
+        Dim _result As New List(Of Trade)()
+        Dim FalseResult As List(Of Trade)
+        For Each tradeItem As Trade In _trade
+            Dim boolResult As Boolean = True
+            Dim tradeIdPattern As String = "\b([TR]{2})\d{3}\b"
+            Dim ISINPattern As String = "\b([ISIN]{4})\d+\b"
+            Dim tradeDate As DateTime
+            Dim maturityDate As DateTime
+            Dim tradeAmount As Decimal
+            'If tradeItem.TradeId Is Nothing OrElse Not Regex.IsMatch(tradeItem.TradeId, tradeIdPattern) Then
+            '    boolResult = False
+            'ElseIf tradeItem.ISIN Is Nothing OrElse Not Regex.IsMatch(tradeItem.ISIN, ISINPattern) Then
+            '    boolResult = False
+            If tradeItem.TradeDate Is Nothing OrElse Not DateTime.TryParseExact(tradeItem.TradeDate, "mm-dd-yy", Nothing, DateTimeStyles.None, tradeDate) Then
+                boolResult = False
+            ElseIf tradeItem.Currency Is Nothing OrElse tradeItem.Currency.Length <> 3 Then
+                boolResult = False
+            ElseIf tradeItem.Amount Is Nothing OrElse Not Decimal.TryParse(tradeItem.Amount, tradeAmount) Then
+                boolResult = False
+            ElseIf Not DateTime.TryParseExact(tradeItem.MaturityDate, "mm-dd-yy", Nothing, DateTimeStyles.None, maturityDate) Then
+                boolResult = False
+            ElseIf maturityDate < tradeDate AndAlso maturityDate > tradeDate.AddYears(3) Then
+                boolResult = False
+            End If
+            'On Success
+            If boolResult Then
+                _result.Add(tradeItem)
+            Else
+                FalseResult.Add(tradeItem)
+            End If
+        Next
+        Return _result
+
+    End Function
+
+
+
+
+End Class

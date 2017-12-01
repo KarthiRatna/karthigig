@@ -1,0 +1,328 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Xml.Serialization;
+using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Xml.Linq;
+using System.Data.SqlClient;
+
+namespace Level1
+{
+    public class FileOperations
+    {
+        public void WriteData()
+        {
+            FileStream fs = new FileStream(@"D:\Learning\Learning\DotNetFrameWork\InBound\FileStream.txt",
+                FileMode.Append, FileAccess.Write);
+            //"c:\\test.txt" Change to appropriate path
+            using (StreamWriter sw = new StreamWriter(fs))
+            {
+                Console.WriteLine("Enter the text which you want to write to the file");
+                string str = Console.ReadLine(); //Enter the text Hello in the console.
+                sw.WriteLine(str);
+                sw.Flush();
+                sw.Close();
+
+            };
+
+            fs.Close();
+        }
+
+        public void ReadCharacterFile()
+        {
+            char ch;
+            StreamReader reader;
+
+            Console.WriteLine("Reading Character by Character From a file Sample.txt");
+
+            reader = new StreamReader(@"D:\Learning\Learning\DotNetFrameWork\InBound\FileStream.txt");
+            do
+            {
+                ch = (char)reader.Read();
+                Console.Write(ch);
+
+            } while (!reader.EndOfStream);
+            reader.Close();
+            reader.Dispose();
+        }
+
+        public void ReplaceCharacter()
+        {
+            string inputString = "\"Sam\" i was born at \"12:00\" \"noon\". I live in \"anyplace\"";
+            Console.WriteLine("Before Replace {0}", inputString);
+            inputString = inputString.Replace(@"""", "\";");
+            Console.WriteLine("After Replace {0}", inputString);
+        }
+
+        public void CountOfWord()
+        {
+            Console.WriteLine("Input Complete String");
+            string InputString = Console.ReadLine();
+            Console.WriteLine("Input Search String");
+            string SearchString = Console.ReadLine();
+            int CountOfString = InputString.Split(' ').Where(c => c.Contains(SearchString)).Count();
+            Console.WriteLine("Count of Search string {0} {1}", SearchString, CountOfString.ToString());
+        }
+
+        public void CountOfEachCharacters()
+        {
+            Console.WriteLine("Input Complete String");
+            string InputString = Console.ReadLine();
+            char[] characterValues = InputString.ToCharArray();
+            StringBuilder countOfStringRepeatedOnce = new StringBuilder();
+            countOfStringRepeatedOnce.Append("List of Characters repeated Only Once\n");
+            StringBuilder countOfStringMoreThanOnce = new StringBuilder();
+            countOfStringMoreThanOnce.Append("List of Characters repeated More than Once\n");
+            foreach (var item in characterValues.GroupBy(z => z))
+            {
+                if (item.Key != ' ')
+                    if (item.Count() == 1)
+                    {
+                        countOfStringRepeatedOnce.Append("Count of Each character ");
+                        countOfStringRepeatedOnce.Append(item.Key + " : ");
+                        countOfStringRepeatedOnce.Append(item.Count().ToString() + "\n");
+                    }
+                    else
+                    {
+                        countOfStringMoreThanOnce.Append("Count of Each character ");
+                        countOfStringMoreThanOnce.Append(item.Key + " : ");
+                        countOfStringMoreThanOnce.Append(item.Count().ToString() + "\n");
+                    }
+            }
+
+            Console.WriteLine(countOfStringRepeatedOnce + "\n");
+            Console.WriteLine(countOfStringMoreThanOnce + "\n");
+
+        }
+
+        public void CountofWordinEachline()
+        {
+
+            StreamReader sr = new StreamReader(@"D:\Learning\Learning\DotNetFrameWork\InBound\TestFile.txt");
+            Console.WriteLine("Please enter the word to search");
+            string searchString = Console.ReadLine();
+            string line = string.Empty;
+            int count = 0;
+            while ((line = sr.ReadLine()) != null)
+            {
+                if (line.IndexOf(searchString, StringComparison.CurrentCultureIgnoreCase) >= 0)
+                    count += 1;
+            }
+
+            Console.WriteLine("The number of line in which the searching string is available {0}", count);
+        }
+
+
+        public List<Trade> GetTradeData(string InputFilePath, string InputFileName)
+        {
+            List<Trade> _listTrade = new List<Trade>();
+
+            var tradeData = File.ReadAllLines(InputFilePath + InputFileName);
+            foreach (var lines in tradeData)
+            {
+                string[] _tradeArray = lines.Split(',');
+                _listTrade.Add(new Trade()
+                {
+                    TradeId = _tradeArray[0],
+                    ISIN = _tradeArray[1],
+                    TradeDate = _tradeArray[2],
+                    MaturityDate = _tradeArray[3],
+                    Currency = _tradeArray[4],
+                    Amount = _tradeArray[5]
+                });
+            }
+            return _listTrade;
+
+        }
+
+        public void WriteTradeXML<T>(List<T> _trade, string OutputFilePath, string OutputFileName)
+        {
+
+
+            XmlSerializer xmlSerilaize = new XmlSerializer(typeof(List<T>));
+            //new XmlAttributeOverrides(),
+            //System.Type[],
+            //new XmlRootAttribute("Trades"),
+            //string.Empty);
+            using (StreamWriter sw = new StreamWriter(OutputFilePath + OutputFileName))
+            {
+                var ns = new XmlSerializerNamespaces();
+                ns.Add("", "");
+                xmlSerilaize.Serialize(sw, _trade, ns);
+            }
+        }
+
+        public List<Trade> ReadTradeXML(string OutputFilePath, string OutputFileName)
+        {
+            XmlSerializer xmlSerilaize = new XmlSerializer(typeof(List<Trade>));
+
+            //FileStream fs = new FileStream(OutputFilePath + OutputFileName, FileMode.Open, FileAccess.Read);
+            StreamReader sr = new StreamReader(OutputFilePath + OutputFileName);
+
+            List<Trade> _trade = (List<Trade>)xmlSerilaize.Deserialize(sr);
+            return _trade.Where(c => c.Currency != "EUR").ToList();
+
+        }
+
+        public List<Trade> VaildateTrade(List<Trade> _trade)
+        {
+            
+            List<Trade> _result = new List<Trade>();
+
+            foreach (Trade tradeItem in _trade)
+            {
+                bool boolResult = true;
+                string tradeIdPattern = @"\b([TR]{2})\d{3}\b";
+                string ISINPattern = @"\b([ISIN]{4})\d+\b";
+                DateTime tradeDate;
+                DateTime maturityDate;
+                decimal tradeAmount;
+                if (tradeItem.TradeId == null || !Regex.IsMatch(tradeItem.TradeId, tradeIdPattern))
+                {
+                    boolResult = false;
+                }
+                else if (tradeItem.ISIN == null || !Regex.IsMatch(tradeItem.ISIN, ISINPattern))
+                {
+                    boolResult = false;
+                }
+                else if (tradeItem.TradeDate == null || !DateTime.TryParseExact(tradeItem.TradeDate, "mm-dd-yy", null, DateTimeStyles.None, out tradeDate))
+                {
+                    boolResult = false;
+                }
+                else if (tradeItem.Currency == null || tradeItem.Currency.Length != 3)
+                {
+                    boolResult = false;
+                }
+                else if (tradeItem.Amount == null || !decimal.TryParse(tradeItem.Amount, out tradeAmount))
+                {
+                    boolResult = false;
+                }
+                else if (!DateTime.TryParseExact(tradeItem.MaturityDate, "mm-dd-yy", null, DateTimeStyles.None, out maturityDate))
+                {
+                    boolResult = false;
+                }
+                else if (maturityDate < tradeDate && maturityDate > tradeDate.AddYears(3))
+                {
+                    boolResult = false;
+                }
+                //On Success
+                if (boolResult)
+                {
+                    _result.Add(tradeItem);
+                }
+
+            }
+            return _result;
+
+        }
+
+        public void CreateCaculatedTrade(List<Trade> _trade, string OutputFilePath, string OutputFileName)
+        {
+            XDocument XDoc = new XDocument();
+            XElement xtrades = new XElement("Trades");
+            foreach (var tradeItem in _trade)
+            {
+                xtrades.Add(new XElement("Trade",
+                    new XElement("TradeId", tradeItem.TradeId),
+                    new XElement("ISIN", tradeItem.ISIN),
+                    new XElement("TradeDate", tradeItem.TradeDate),
+                    new XElement("Currency", tradeItem.Currency),
+                    new XElement("Amount", tradeItem.Amount),
+                    new XElement("CalcualtedTrade", GetCalculatedTrade(Convert.ToDouble(tradeItem.Amount), tradeItem.Currency))));
+
+            }
+            XDoc.Add(xtrades);
+            XDoc.Save(OutputFilePath + OutputFileName);
+        }
+
+        public Double GetCalculatedTrade(Double amount, string Currency)
+        {
+
+            switch (Currency)
+            {
+                case "USD": return amount * 0.6;
+                case "EUR": return amount * 0.1;
+                case "IND": return amount * 1;
+                default: return 0;
+
+            }
+        }
+
+        public void SaveTrades(List<Trade> RecordList)
+        {
+            foreach (Trade Items in RecordList)
+            {
+                string strcon = @"Data Source=CTSINTBMVMGAS1\SQL,1435;Initial Catalog=master;Integrated Security=True";
+                SqlConnection mycon = new SqlConnection(strcon);
+                mycon.Open();
+                string strquery = "INSERT INTO trade VALUES('" + Items.TradeId + "','"
+                    + Items.ISIN + "','"
+                    + Items.TradeDate + "','"
+                    + Items.MaturityDate + "','"
+                    + Items.Currency + "',"
+                    + Items.Amount + ")";
+                SqlCommand cmd = new SqlCommand(strquery, mycon);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public void SaveTradesWithLinQ(List<Trade> RecordList)
+        {
+            using (MyDataBase md = new MyDataBase())
+            {
+                foreach (Trade Items in RecordList)
+                {
+                    int rowsAffected = md.ExecuteCommand("INSERT INTO trade VALUES('" + Items.TradeId + "','"
+                   + Items.ISIN + "','"
+                   + Items.TradeDate + "','"
+                   + Items.MaturityDate + "','"
+                   + Items.Currency + "',"
+                   + Items.Amount + ")");
+
+                    /*  StringBuilder sqlQueryString = new StringBuilder();
+                      sqlQueryString.Append("INSERT INTO [dbo].[trade]([TradeId],[ISIN],[TradeDate],[MaturityDate],[Currency],[Amount])");
+                      sqlQueryString.Append("VALUES(@TradeId,@ISIN,@TradeDate,@MaturityDate,@Currency,@Amount)");
+
+                     object[] obj = new object();
+                      SqlParameter tradeID = new SqlParameter();
+                      tradeID.ParameterName = "@TradeId";
+                      tradeID.Value = Items.TradeId;
+
+                      SqlParameter iSIN = new SqlParameter();
+                      iSIN.ParameterName = "@ISIN";
+                      iSIN.Value = Items.ISIN;
+
+                      SqlParameter tradeDAte = new SqlParameter();
+                      tradeDAte.ParameterName = "@TradeDate";
+                      tradeDAte.Value = Items.TradeDate;
+
+                      SqlParameter maturityDate = new SqlParameter();
+                      maturityDate.ParameterName = "@MaturityDate";
+                      maturityDate.Value = Items.MaturityDate;
+
+                      SqlParameter currency = new SqlParameter();
+                      currency.ParameterName = "@Currency";
+                      currency.Value = Items.Currency;
+
+                      SqlParameter amount = new SqlParameter();
+                      amount.ParameterName = "@Amount";
+                      amount.Value = Items.Amount; */
+
+
+                    //tradeID,
+                    //iSIN,
+                    //tradeDAte,
+                    //maturityDate,
+                    //currency,
+                    //amount);
+
+
+                }
+            }
+        }
+
+    }
+}
